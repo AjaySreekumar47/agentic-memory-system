@@ -1,0 +1,5 @@
+query,expected_memory_content,keyword_hit_rate,keyword_hit_rate_at_1,reciprocal_rank,top_retrieved_content,top_retrieved_score
+What project is the user building?,The user is building an efficient memory system for an LLM chatbot.,1.0,1.0,1.0,The user is building an efficient memory system for an LLM chatbot.,0.43667467734549276
+Which paper approach is the user implementing first?,The user decided to start with the A-MEM paper.,1.0,1.0,1.0,The user decided to start with the A-MEM paper.,0.6610954826016511
+Where does the user want to build the project?,The user prefers local VS Code development for this project rather than Colab.,1.0,1.0,1.0,The user prefers local VS Code development for this project rather than Colab.,0.49775085594987845
+What are the main modules in the first memory system?,"A-MEM uses note construction, link generation, memory evolution, and memory retrieval.",1.0,0.5,0.3333333333333333,The user is building an efficient memory system for an LLM chatbot.,0.6058728987717401

@@ -1,0 +1,11 @@
+python-dotenv
+pydantic
+numpy
+pandas
+scikit-learn
+sentence-transformers
+tqdm
+rich
+pytest
+streamlit
+ollama
