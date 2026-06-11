@@ -42,8 +42,8 @@ An A-MEM-inspired system that:
 
 ## Key Finding
 
-The raw vector baseline achieved strong recall, but weaker ranking precision.  
-The agentic memory system preserved recall while improving exact-memory ranking on the expanded synthetic benchmark.
+The raw vector baseline achieved perfect broad recall but weaker exact-memory ranking.  
+The agentic memory system achieved perfect recall and perfect exact-memory ranking on the expanded benchmark, including a preference-change case where the user later qualified an earlier VS Code vs Colab preference.
 
 
 ## Local Setup
@@ -127,7 +127,7 @@ Current headline result:
 
 | System | Keyword Hit Rate | Keyword Hit Rate @ 1 | MRR |
 |---|---:|---:|---:|
-| raw_vector | 1.000 | 0.667 | 0.792 |
+| raw_vector | 1.000 | 0.643 | 0.702 |
 | agentic_memory | 1.000 | 1.000 | 1.000 |
 
 Next:

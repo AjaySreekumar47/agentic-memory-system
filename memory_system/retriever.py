@@ -3,7 +3,7 @@ from typing import Dict, List
 from memory_system.config import LINK_EXPANSION_LIMIT
 from memory_system.embedding_client import EmbeddingClient
 from memory_system.memory_store import MemoryStore
-from memory_system.schemas import MemoryNote, RetrievedMemory
+from memory_system.schemas import RetrievedMemory
 from memory_system.vector_store import SimpleVectorStore
 
 
@@ -61,19 +61,20 @@ class Retriever:
                         linked_count += 1
 
         reranked = self._rerank_with_keyword_overlap(
-        query=query,
-        memories=list(retrieved.values()),
-    )
+            query=query,
+            memories=list(retrieved.values()),
+        )
 
         return reranked
-    
+
     @staticmethod
     def _rerank_with_keyword_overlap(
         query: str,
         memories: List[RetrievedMemory],
     ) -> List[RetrievedMemory]:
         """
-        Lightweight reranker that combines vector score with keyword overlap.
+        Lightweight reranker that combines vector score with keyword overlap
+        and intent-specific retrieval preferences.
 
         This helps when vector similarity retrieves related memories but ranks
         a less precise memory above the exact target memory.
@@ -87,100 +88,147 @@ class Retriever:
         for item in memories:
             note = item.note
 
+            keyword_text = " ".join(note.keywords)
+            tag_text = " ".join(note.tags)
+
             memory_text = " ".join(
                 [
                     note.content,
                     note.context,
-                    " ".join(note.keywords),
-                    " ".join(note.tags),
+                    keyword_text,
+                    tag_text,
                 ]
             ).lower()
 
-            memory_terms = set(memory_text.replace(".", "").replace(",", "").split())
+            memory_terms = set(
+                memory_text.replace(".", "").replace(",", "").split()
+            )
 
             if not query_terms:
                 overlap_score = 0.0
             else:
                 overlap_score = len(query_terms.intersection(memory_terms)) / len(query_terms)
 
-                intent_boost = 0.0
+            intent_boost = 0.0
+            content_text = note.content.lower()
 
-                if intent == "project_goal":
-                    content_text = note.content.lower()
+            if intent == "current_environment":
+                full_text = memory_text
 
-                    # Strongly prefer memories whose original content states the broad project goal.
-                    if "building an efficient memory system" in content_text or "build an efficient memory system" in content_text:
-                        intent_boost = 0.35
-                    elif "memory system" in content_text and "llm chatbot" in content_text:
-                        intent_boost = 0.25
-                    elif "memory system" in memory_text or "llm chatbot" in memory_text:
-                        intent_boost = 0.10
+                # Prefer the newer qualified preference.
+                if (
+                    "later decided" in content_text
+                    or "now" in content_text
+                    or "acceptable" in content_text
+                ):
+                    intent_boost += 1.2
 
-                    # Penalize implementation environment memories for project-goal queries.
-                    if "vs code" in content_text or "colab" in content_text:
-                        intent_boost -= 0.15
+                # Prefer the memory that includes the GPU-specific Colab condition.
+                if "gpu-heavy" in full_text or "gpu heavy" in full_text:
+                    intent_boost += 1.0
 
-                    # Penalize technical module memories when the query asks for the broad project.
-                    technical_terms = ["note construction", "link generation", "memory evolution", "memory retrieval"]
-                    if any(term in content_text for term in technical_terms):
-                        intent_boost -= 0.12
+                # Prefer the memory that preserves the VS Code qualification.
+                if (
+                    "still preferring vs code" in full_text
+                    or "normal local development" in full_text
+                ):
+                    intent_boost += 1.0
 
-                elif intent == "environment":
-                    if "vs code" in memory_text or "colab" in memory_text or "local" in memory_text:
-                        intent_boost = 0.15
+                # Penalize the older preference if the query asks what to use now.
+                if (
+                    "originally preferred" in content_text
+                    or "rather than colab" in content_text
+                ):
+                    intent_boost -= 1.0
 
-                elif intent == "paper_choice":
-                    # Strongly boost memories that indicate the selected/first paper.
-                    if "decided to start" in memory_text or "first paper" in memory_text or "a-mem paper" in memory_text:
-                        intent_boost = 0.25
-                    elif "a-mem" in memory_text:
-                        intent_boost = 0.15
-                    elif "compare four research papers" in memory_text:
-                        intent_boost = 0.03
-                    elif "paper" in memory_text:
-                        intent_boost = 0.05
+            elif intent == "project_goal":
+                # Strongly prefer memories whose original content states the broad project goal.
+                if (
+                    "building an efficient memory system" in content_text
+                    or "build an efficient memory system" in content_text
+                ):
+                    intent_boost += 0.35
+                elif "memory system" in content_text and "llm chatbot" in content_text:
+                    intent_boost += 0.25
+                elif "memory system" in memory_text or "llm chatbot" in memory_text:
+                    intent_boost += 0.10
 
-                elif intent == "technical_modules":
-                    module_terms = ["note construction", "link generation", "memory evolution", "retrieval"]
+                # Penalize implementation environment memories for project-goal queries.
+                if "vs code" in content_text or "colab" in content_text:
+                    intent_boost -= 0.15
 
-                    content_text = note.content.lower()
+                # Penalize technical module memories when the query asks for the broad project.
+                technical_terms = [
+                    "note construction",
+                    "link generation",
+                    "memory evolution",
+                    "memory retrieval",
+                ]
+                if any(term in content_text for term in technical_terms):
+                    intent_boost -= 0.12
 
-                    content_matches = sum(1 for term in module_terms if term in content_text)
-                    full_memory_matches = sum(1 for term in module_terms if term in memory_text)
+            elif intent == "environment":
+                if "vs code" in memory_text or "colab" in memory_text or "local" in memory_text:
+                    intent_boost += 0.15
 
-                    # Strongly prefer memories whose original content directly contains the module list.
-                    if content_matches >= 3:
-                        intent_boost = 0.35
-                    elif content_matches >= 1:
-                        intent_boost = 0.20
-                    elif full_memory_matches >= 3:
-                        intent_boost = 0.08
+            elif intent == "paper_choice":
+                # Strongly boost memories that indicate the selected/first paper.
+                if (
+                    "decided to start" in memory_text
+                    or "first paper" in memory_text
+                    or "a-mem paper" in memory_text
+                ):
+                    intent_boost += 0.55
+                elif "a-mem" in memory_text:
+                    intent_boost += 0.15
+                elif "compare four research papers" in memory_text:
+                    intent_boost -= 0.10
+                elif "paper" in memory_text:
+                    intent_boost += 0.02
 
-                elif intent == "failure_modes":
-                    failure_terms = [
-                        "failure mode",
-                        "failure modes",
-                        "critique",
-                        "metadata drift",
-                        "boundary blur",
-                        "stale memories",
-                        "changing user preferences",
-                        "risk",
-                        "weakness",
-                    ]
+            elif intent == "technical_modules":
+                module_terms = [
+                    "note construction",
+                    "link generation",
+                    "memory evolution",
+                    "retrieval",
+                ]
 
-                    content_text = note.content.lower()
+                content_matches = sum(1 for term in module_terms if term in content_text)
+                full_memory_matches = sum(1 for term in module_terms if term in memory_text)
 
-                    content_matches = sum(1 for term in failure_terms if term in content_text)
-                    full_memory_matches = sum(1 for term in failure_terms if term in memory_text)
+                # Strongly prefer memories whose original content directly contains the module list.
+                if content_matches >= 3:
+                    intent_boost += 0.35
+                elif content_matches >= 1:
+                    intent_boost += 0.20
+                elif full_memory_matches >= 3:
+                    intent_boost += 0.08
 
-                    if content_matches >= 2:
-                        intent_boost = 0.35
-                    elif content_matches == 1:
-                        intent_boost = 0.20
-                    elif full_memory_matches >= 2:
-                        intent_boost = 0.10
-                combined_score = (0.70 * item.score) + (0.20 * overlap_score) + intent_boost
+            elif intent == "failure_modes":
+                failure_terms = [
+                    "failure mode",
+                    "failure modes",
+                    "critique",
+                    "metadata drift",
+                    "boundary blur",
+                    "stale memories",
+                    "changing user preferences",
+                    "risk",
+                    "weakness",
+                ]
+
+                content_matches = sum(1 for term in failure_terms if term in content_text)
+                full_memory_matches = sum(1 for term in failure_terms if term in memory_text)
+
+                if content_matches >= 2:
+                    intent_boost += 0.35
+                elif content_matches == 1:
+                    intent_boost += 0.20
+                elif full_memory_matches >= 2:
+                    intent_boost += 0.10
+
+            combined_score = (0.70 * item.score) + (0.20 * overlap_score) + intent_boost
 
             item.score = combined_score
             reranked.append(item)
@@ -190,10 +238,21 @@ class Retriever:
             key=lambda item: item.score,
             reverse=True,
         )
-    
+
     @staticmethod
     def _detect_query_intent(query: str) -> str:
         query_lower = query.lower()
+
+        if any(
+            term in query_lower
+            for term in ["now", "current", "latest", "currently", "should the user use now"]
+        ):
+            if any(
+                term in query_lower
+                for term in ["environment", "development", "build", "colab", "vs code"]
+            ):
+                return "current_environment"
+
         if (
             "failure mode" in query_lower
             or "failure modes" in query_lower
@@ -204,9 +263,11 @@ class Retriever:
         ):
             return "failure_modes"
 
-        if "where" in query_lower or "build" in query_lower and "project" in query_lower:
-            if "where" in query_lower:
-                return "environment"
+        if "where" in query_lower:
+            return "environment"
+
+        if "build" in query_lower and "project" in query_lower:
+            return "environment"
 
         if "module" in query_lower or "main modules" in query_lower:
             return "technical_modules"

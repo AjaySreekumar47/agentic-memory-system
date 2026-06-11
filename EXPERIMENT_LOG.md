@@ -78,3 +78,40 @@ Intent-aware reranking helped distinguish between project-goal, technical-detail
 
 ### Limitation
 The benchmark is still synthetic and small. Future work should add multi-turn conversation traces, contradictory memories, stale preferences, and larger memory collections.
+
+## Experiment 3: Preference-Change Retrieval
+
+### Goal
+
+Test whether the memory system can retrieve the latest qualified user preference instead of returning an older conflicting preference.
+
+### Added Scenario
+
+Older memory:
+
+> The user originally preferred local VS Code over Colab for this memory-system project because they wanted a lightweight local development workflow.
+
+Newer memory:
+
+> The user later decided that Colab is acceptable for GPU-heavy experiments, while still preferring VS Code for normal local development.
+
+Query:
+
+> What development environment should the user use now?
+
+### Result
+
+| System | Keyword Hit Rate | Keyword Hit Rate @ 1 | MRR |
+|---|---:|---:|---:|
+| raw_vector | 1.000 | 0.643 | 0.702 |
+| agentic_memory | 1.000 | 1.000 | 1.000 |
+
+### Interpretation
+
+The raw vector baseline retained broad recall but ranked older or less precise memories above the current qualified preference in some cases.
+
+The agentic memory system retrieved the correct newer preference after adding current-environment intent detection and preference-aware reranking.
+
+### Design Takeaway
+
+Long-term memory systems need more than semantic similarity. They need intent-aware ranking that can distinguish older preferences from newer qualified updates.

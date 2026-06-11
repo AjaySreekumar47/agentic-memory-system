@@ -27,6 +27,14 @@ SYNTHETIC_MEMORY_EVENTS = [
         "id": "m7",
         "content": "The user wants to critique A-MEM because memory evolution can cause metadata drift or boundary blur.",
     },
+    {
+        "id": "m8",
+        "content": "The user originally preferred local VS Code over Colab for this memory-system project because they wanted a lightweight local development workflow."
+    },
+    {
+        "id": "m9",
+        "content": "The user later decided that Colab is acceptable for GPU-heavy experiments, while still preferring VS Code for normal local development."
+    },
 ]
 
 SYNTHETIC_QUERIES = [
@@ -59,5 +67,10 @@ SYNTHETIC_QUERIES = [
         "query": "What should the final memory system avoid?",
         "expected_keywords": ["stale memories", "changing user preferences"],
         "expected_memory_content": "The user wants the final memory system to avoid stale memories and handle changing user preferences.",
+    },
+    {
+        "query": "What development environment should the user use now?",
+        "expected_keywords": ["Colab", "GPU-heavy", "VS Code", "normal local development"],
+        "expected_memory_content": "The user later decided that Colab is acceptable for GPU-heavy experiments, while still preferring VS Code for normal local development.",
     },
 ]
